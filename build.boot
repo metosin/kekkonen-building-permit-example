@@ -16,8 +16,6 @@
                   [org.clojure/tools.nrepl "0.2.12"    :scope "test"]
                   [adzerk/boot-reload     "0.4.2"      :scope "test"]
                   [deraen/boot-less       "0.5.0"      :scope "test"]
-                  ;; For boot-less
-                  [org.slf4j/slf4j-nop    "1.7.13"     :scope "test"]
                   [deraen/boot-ctn        "0.1.0"      :scope "test"]
 
                   ; Backend
@@ -29,6 +27,7 @@
                   [metosin/reagent-dev-tools "0.1.0"]
                   [metosin/ring-http-response "0.6.5"]
                   [metosin/metosin-common "0.1.3"]
+                  [metosin/lokit "0.1.0"]
                   [hiccup "1.0.5"]
                   [ring-webjars "0.1.1"]
 
