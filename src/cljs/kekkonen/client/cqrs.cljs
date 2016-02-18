@@ -29,10 +29,17 @@
       :method (if (= :command type) :post :get)
       (if (= :command type) :transit-params :query-params) data
       :headers {"kekkonen.mode" "invoke"}
-      :accept "application/transit+json"
-      :kekkonen {:client client
-                 :action action
-                 :data data}})))
+      :accept "application/transit+json"})))
+
+(defn actions
+  [client namespace data]
+  (request
+    {:url (str (:base-uri client) "/" (action->uri :kekkonen/actions))
+     :method :post
+     :query-params {:kekkonen.mode "check"
+                    :kekkonen.ns (name namespace)}
+     :transit-params data
+     :accept "application/transit+json"}))
 
 (def command (partial invoke :command))
 (def query (partial invoke :query))

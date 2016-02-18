@@ -1,5 +1,7 @@
 (ns frontend.main
+  (:require-macros [cljs.core.async.macros :as a])
   (:require [reagent.core :as r]
+            [cljs.core.async :as a]
             [frontend.app :as app]
             [reagent-dev-tools.core :as dev]
             [devtools.core :as devtools]
@@ -32,12 +34,13 @@
            :on-change #(reset! username (.. % -target -value))}]]
         [:button.btn.btn-primary.btn-block
          {:type "submit"}
-         "Login"]]])))
+         "Login"]
+
+        [:p "Demo users: applicant-1, applicant-2, authority-1, authority-2, admin"]]])))
 
 (defn permits-view []
   (let [role @(r/track app/current-role)
         permits (vals @(r/track app/permits))]
-    (js/console.log permits)
     [:div
      [:h1 "Your building permits"
       [:div.btn-group.pull-right
@@ -50,6 +53,7 @@
       [:thead
        [:tr
         [:th "Title"]
+        [:th "State"]
         (if (authority? role)
           [:th "Applicant"])
         (if (applicant? role)
@@ -57,23 +61,26 @@
           [:th "Claimed"])
         [:th "Created"]]]
       [:tbody
-       (for [{:keys [permit-id title applicant-id applicant authority-id authority created] :as permit} permits]
+       (for [{:keys [permit-id title applicant-id applicant authority-id authority created state] :as permit} permits]
          [:tr
           {:key permit-id}
           [:td
            [:a {:on-click #(app/navigate! :permit {:id permit-id})
                 :href "#"}
             title]]
+          [:td
+           (name state)]
           (if (authority? role)
             [:td (:name applicant)])
           (if (applicant? role)
             [:td (if authority-id
                    (:name authority)
                    "Not assigned yet")]
+            ; FIXME: Duplicated logic instead of checking if command is available
             [:td (if-not authority-id
                    [:button.btn.btn-success.btn-block
                     {:type "button"
-                     :on-click #(app/claim-permit! permit-id)}
+                     :on-click #(app/permit-action! :building-permit/claim permit-id)}
                     "Claim"]
                    "Claimed")])
           [:td (date-str created)]])]]]))
@@ -98,10 +105,51 @@
           {:type "submit"}
           "Create"]]]])))
 
+(defmulti action (fn [k permit] k))
+
+(defmethod action :default [k _]
+  [:h2 "Unknown action " (name k)])
+
+(defmethod action :building-permit/open [k {:keys [permit-id]}]
+  [:div
+   [:button.btn.btn-success
+    {:on-click #(app/permit-action! k {:permit-id permit-id})}
+    "Open"]])
+
+(defmethod action :building-permit/submit [k {:keys [permit-id]}]
+  [:div
+   [:button.btn.btn-success
+    {:on-click #(app/permit-action! k {:permit-id permit-id})}
+    "Submit"]])
+
+(defmethod action :building-permit/claim [k {:keys [permit-id]}]
+  [:div
+   [:button.btn.btn-success
+    {:on-click #(app/permit-action! k {:permit-id permit-id})}
+    "Claim"]])
+
+(defmethod action :building-permit/return-to-applicant [k {:keys [permit-id]}]
+  [:div
+   [:button.btn.btn-success
+    {:on-click #(app/permit-action! k {:permit-id permit-id})}
+    "Return to applicant"]])
+
+(defmethod action :building-permit/approve [k {:keys [permit-id]}]
+  [:div
+   [:button.btn.btn-success
+    {:on-click #(app/permit-action! k {:permit-id permit-id})}
+    "Approve"]])
+
+(defmethod action :building-permit/reject [k {:keys [permit-id]}]
+  [:div
+   [:button.btn.btn-success
+    {:on-click #(app/permit-action! k {:permit-id permit-id})}
+    "Reject"]])
+
 (defn permit-view [_]
   (let [comment-text (r/atom "")]
     (fn [{:keys [id]}]
-      (let [{:keys [title applicant authority created permit-id comments]}
+      (let [{:keys [title applicant authority created permit-id comments state] :as permit}
             @(r/track app/permit-by-id id)]
         [:div
          [:h1 "Permit: " title]
@@ -117,22 +165,37 @@
            [:dt "Created"]
            [:dd (date-str created)]]]
 
+         [:ul.state-list
+          [:li {:class (if (#{:draft :open :submitted :approved :rejected} state) "active ")}
+           "Draft"]
+          [:li {:class (if (#{:open :submitted :approved :rejected} state) "active ")}
+           "Open"]
+          [:li {:class (if (#{:submitted :approved :rejected} state) "active ")}
+           "Submitted"]
+          [:li {:class (if (#{:approved :rejected} state) "active ")}
+           "Approved / Rejected"]]
+
          [:h2 "Available actions"]
+
+         (for [k @(r/track app/interesting-actions)]
+           ^{:key k}
+           [action k permit])
 
          [:h2 "Comments"]
 
-         [:form
-          {:on-submit (fn [e]
-                        (.preventDefault e)
-                        (app/add-comment {:id permit-id
-                                          :text @comment-text}))}
-          [:div.form-group
-           [:textarea.form-control
-            {:value @comment-text
-             :on-change #(reset! comment-text (.. % -target -value))}]]
-          [:button.btn.btn-primary.btn-block
-           {:type "submit"}
-           "Comment"]]
+         (if @(r/track app/available-action? :building-permit/add-comment)
+           [:form
+            {:on-submit (fn [e]
+                          (.preventDefault e)
+                          (app/permit-action! :building-permit/add-comment {:permit-id permit-id
+                                                                            :text @comment-text}))}
+            [:div.form-group
+             [:textarea.form-control
+              {:value @comment-text
+               :on-change #(reset! comment-text (.. % -target -value))}]]
+            [:button.btn.btn-primary.btn-block
+             {:type "submit"}
+             "Comment"]])
 
          (for [{:keys [sent text]} comments]
            [:div
@@ -142,11 +205,17 @@
 (defmethod render-view :default [_]
   [:h1 "Unknown view"])
 
+(defmethod app/navigate-hook :permits [_]
+  (app/load-my-permits!))
+
 (defmethod render-view :permits [_]
   [permits-view])
 
 (defmethod render-view :new-permit [_]
   [new-permit-view])
+
+(defmethod app/navigate-hook :permit [{:keys [id]}]
+  (app/check-available-permit-actions! {:permit-id id}))
 
 (defmethod render-view :permit [{:keys [id]}]
   [permit-view {:id id}])
@@ -183,7 +252,9 @@
             [:div "wat..."])))]]))
 
 (defn init! []
-  (app/load-session!)
+  (a/go
+    (a/<! (app/load-session!))
+    (app/navigate! :permits))
   (r/render [main-view] (js/document.getElementById "app"))
   (if-let [el (js/document.getElementById "dev")]
     (r/render [dev/dev-tool {}] el)))

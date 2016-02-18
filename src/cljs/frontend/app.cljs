@@ -44,18 +44,29 @@
 (defn permit-by-id [id]
   (get @(r/track permits) id))
 
+(defn available-actions []
+  (:available-permit-actions @state))
+
+(def actions [:building-permit/open
+              :building-permit/submit
+              :building-permit/claim
+              :building-permit/return-to-applicant
+              :building-permit/approve
+              :building-permit/reject])
+
+(defn interesting-actions []
+  (let [available-actions (set (keys (filter (comp nil? val) @(r/track available-actions))))]
+    (vec (filter available-actions actions))))
+
+(defn available-action? [action]
+  (nil? (get @(r/track available-actions) action)))
+
 ;;
 ;; Load stuff
 ;;
 
 (defn map-by-id [k m]
   (into {} (map (juxt k identity) m)))
-
-(defn load-users! []
-  (a/go
-    (let [resp (a/<! (cqrs/query client :users/get-all))]
-      (when (success? resp)
-        (swap! state assoc :users (map-by-id :user-id (:body resp)))))))
 
 (defn load-my-permits! []
   (a/go
@@ -69,8 +80,7 @@
       (if (success? resp)
         (do
           (swap! state assoc :session {:status :logged
-                                       :user (:body resp)})
-          (load-my-permits!))
+                                       :user (:body resp)}))
         (swap! state assoc :session {:status :not-logged})))))
 
 (defn login! [username]
@@ -85,28 +95,31 @@
       (if (success? resp)
         (a/<! (load-session!))))))
 
+(defmulti navigate-hook :routing/id)
+
+(defmethod navigate-hook :default [_] nil)
+
 (defn navigate!
   ([route]
    (navigate! route nil))
   ([route params]
-   (swap! state assoc :view (assoc params :routing/id route))))
+   (swap! state assoc :view (assoc params :routing/id route))
+   (navigate-hook (assoc params :routing/id route))))
 
 (defn create-permit! [data]
   (a/go
     (let [resp (a/<! (cqrs/command client :building-permit/create-permit data))]
       (when (success? resp)
         (a/<! (load-my-permits!))
-        (navigate! :permit {:id (:permit-id (:body resp))})))))
+        (navigate! :permit {:permit-id (:permit-id (:body resp))})))))
 
-(defn claim-permit! [id]
+(defn check-available-permit-actions! [data]
   (a/go
-    (let [resp (a/<! (cqrs/command client :building-permit/claim {:id id}))]
+    (let [resp (a/<! (cqrs/actions client :building-permit data))]
       (when (success? resp)
-        (a/<! (load-my-permits!))))))
+        (swap! state assoc :available-permit-actions (:body resp))))))
 
-(defn add-comment [data]
+(defn permit-action! [k data]
   (a/go
-    (let [resp (a/<! (cqrs/command client :building-permit/add-comment data))]
-      (when (success? resp)
-        ; FIXME: load single permit
-        (a/<! (load-my-permits!))))))
+    (let [resp (a/<! (cqrs/command client k data))]
+      (a/<! (load-my-permits!)))))

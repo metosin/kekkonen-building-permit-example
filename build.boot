@@ -6,6 +6,7 @@
   :dependencies '[[org.clojure/clojure    "1.8.0"]
                   [org.clojure/clojurescript "1.7.228"]
                   [org.clojure/core.async "0.2.374"]
+                  [org.clojure/tools.logging "0.3.1"]
 
                   [boot/core              "2.5.5"      :scope "test"]
                   [adzerk/boot-cljs       "1.7.228-1"  :scope "test"]

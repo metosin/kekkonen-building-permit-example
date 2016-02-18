@@ -65,9 +65,9 @@
 (defn retrieve-permit [_]
   (p/fnk [[:state permits :as state]
           [:entities current-user]
-          [:data id :- s/Int]
+          [:data permit-id :- s/Int]
           :as context]
-    (if-let [permit (get @permits id)]
+    (if-let [permit (get @permits permit-id)]
       (if (has-permission? permit current-user)
         (assoc-in context [:entities :permit] permit)
         (failure! {:error :unauthorized}))
@@ -79,12 +79,12 @@
       context
       (failure! {:error :bad-request}))))
 
-(defn requires-claim [_]
+(defn requires-claim [v]
   (p/fnk [[:entities
            [:permit authority-id]
            [:current-user user-id]]
           :as context]
-    (if (= authority-id user-id)
+    (if (= v (= authority-id user-id))
       context
       (failure! {:error :unauthorized}))))
 
@@ -161,6 +161,7 @@
 (p/defnk ^:command claim
   "Claim this permit"
   {:requires-role #{:authority}
+   ::requires-claim false
    ::retrieve-permit true}
   [[:state permits]
    [:entities
@@ -215,10 +216,3 @@
     (swap! permits update-in [permit-id :comments] (fnil conj []) new-comment)
     (success {:status :ok
               :comment new-comment})))
-
-(p/defnk ^:command modify
-  "Modify basic data of permit"
-  {::retrieve-permit true
-   :requires-role #{:authority :applicant}}
-  []
-  (success))
