@@ -25,11 +25,5 @@
     {:state {:permits (atom {})
              :users (atom default-users)}
      :http (component/using
-             (http-kit/create
-               (:http config)
-               {:fn
-                (if (:dev-mode? config)
-                  ; re-create handler on every request
-                  (fn [system] #((handler/create system) %))
-                  handler/create)})
+             (http-kit/create (:http config) {:fn (partial handler/create config)})
              [:state])}))

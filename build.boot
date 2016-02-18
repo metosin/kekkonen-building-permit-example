@@ -29,6 +29,8 @@
                   [metosin/reagent-dev-tools "0.1.0"]
                   [metosin/ring-http-response "0.6.5"]
                   [metosin/metosin-common "0.1.3"]
+                  [hiccup "1.0.5"]
+                  [ring-webjars "0.1.1"]
 
                   ; Frontend
                   [reagent "0.6.0-alpha"]
@@ -75,7 +77,6 @@
   less {:source-map true})
 
 (deftask dev
-  "Start the dev env..."
   [p port       PORT int  "Port for web server"]
   (comp
     (watch)
@@ -85,13 +86,13 @@
     (cljs)
     (start-app :port port)))
 
-(deftask package
-  "Build the package"
-  []
+(deftask build []
   (comp
     (less :compression true)
     (cljs :optimizations :advanced)
-    (aot)
     (pom)
     (uber)
-    (jar)))
+    (aot)
+    (jar :file "app.jar")
+    (sift :include #{#"app.jar"})
+    (target :dir #{"target"})))
