@@ -8,7 +8,7 @@
   ([] (init nil))
   ([opts]
    (require 'backend.system)
-   ((resolve 'backend.system/new-system) (merge {:http {:port 3000}
+   ((resolve 'backend.system/new-system) (merge {:http {:port (or (some-> (System/getenv "PORT") Integer/parseInt) 3000)}
                                                  :dev-mode? true}
                                                 opts))))
 
