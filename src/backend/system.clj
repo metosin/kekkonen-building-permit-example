@@ -4,13 +4,13 @@
             [backend.handler :as handler]))
 
 (def default-users
-  {1 {:id 1
+  {1 {:user-id 1
       :name "applicant"
       :role :applicant}
-   2 {:id 2
+   2 {:user-id 2
       :name "authority"
       :role :authority}
-   3 {:id 3
+   3 {:user-id 3
       :name "admin"
       :role :admin}})
 
