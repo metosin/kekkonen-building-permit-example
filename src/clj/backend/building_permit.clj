@@ -44,12 +44,26 @@
         {:keys [user-id role]} user]
     (case role
       :applicant (= user-id applicant-id)
+      :authority true
+      :admin true
+      false)))
+
+(defn is-interesting? [permit user]
+  (let [{:keys [applicant-id authority-id]} permit
+        {:keys [user-id role]} user]
+    (case role
+      :applicant (= user-id applicant-id)
       :authority (or (= user-id authority-id) (nil? authority-id))
       :admin true
       false)))
 
+(defn enrich [state permit]
+  (assoc permit
+         :authority (get @(:users state) (:authority-id permit))
+         :applicant (get @(:users state) (:applicant-id permit))))
+
 (defn retrieve-permit [_]
-  (p/fnk [[:state permits]
+  (p/fnk [[:state permits :as state]
           [:entities current-user]
           [:data id :- s/Int]
           :as context]
@@ -61,7 +75,7 @@
 
 (defn requires-state [allowed-states]
   (p/fnk [[:entities [:permit state]] :as context]
-    (if (contains? allowed-states state)
+    (if (allowed-states state)
       context
       (failure! {:error :bad-request}))))
 
@@ -78,17 +92,30 @@
   "Retrieve a single building permit"
   {::retrieve-permit true
    :responses {:default {:schema BuildingPermit}}}
-  [[:entities permit]]
-  (success permit))
+  [[:entities permit]
+   state]
+  (success (enrich state permit)))
 
-(p/defnk ^:query list-permits
+(p/defnk ^:query all-permits
   "List building permits you have access to"
   {:responses {:default {:schema [BuildingPermit]}}}
-  [[:state permits]
+  [[:state permits :as state]
    [:entities current-user]]
   (success (->> @permits
                 vals
                 (filter #(has-permission? % current-user))
+                (map #(enrich state %))
+                vec)))
+
+(p/defnk ^:query my-permits
+  "List building permits you have access to"
+  {:responses {:default {:schema [BuildingPermit]}}}
+  [[:state permits :as state]
+   [:entities current-user]]
+  (success (->> @permits
+                vals
+                (filter #(is-interesting? % current-user))
+                (map #(enrich state %))
                 vec)))
 
 (p/defnk ^:command create-permit
@@ -175,23 +202,23 @@
 (p/defnk ^:command add-comment
   "Add a comment to permit"
   {::retrieve-permit true
+   ::requires-state (complement #{:approved :rejected})
    :requires-role #{:applicant :authority}}
   [[:data text :- s/Str]
    [:state permits]
    [:entities
-    [:permit id]
-    [:current-user id]]]
-  (let [comment {:user id
-                 :sent (java.util.Date.)
-                 :text text}]
-    (swap! permits update-in [id :comments] (fnil conj []) comment)
+    [:permit permit-id]
+    [:current-user user-id]]]
+  (let [new-comment {:user user-id
+                     :sent (java.util.Date.)
+                     :text text}]
+    (swap! permits update-in [permit-id :comments] (fnil conj []) new-comment)
     (success {:status :ok
-              :comment comment})))
+              :comment new-comment})))
 
 (p/defnk ^:command modify
   "Modify basic data of permit"
-  {::requires-claim true
-   ::retrieve-permit true
-   :requires-role #{:authority}}
+  {::retrieve-permit true
+   :requires-role #{:authority :applicant}}
   []
   (success))

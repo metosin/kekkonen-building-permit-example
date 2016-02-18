@@ -6,12 +6,15 @@
             [backend.users :as users]))
 
 (defn session-identity [req]
-  (-> req :session :identity))
+  (or (some-> req :headers (get "x-apikey") Integer/parseInt)
+      (-> req :session :identity)))
 
-(defn require-session [_]
+(defn require-session [result]
   (p/fnk [request :as m]
     (if (session-identity request)
-      m)))
+      m
+      (if (= :error result)
+        (failure! {:status :unauthorized})))))
 
 (defn load-current-user [_]
   (p/fnk [request
@@ -44,7 +47,7 @@
   (assoc-in (success) [:session] nil))
 
 (p/defnk ^:query who-am-i
-  {:require-session true
+  {:require-session :error
    :load-current-user true
    :responses {:default {:schema users/User}}}
   [[:entities current-user]]

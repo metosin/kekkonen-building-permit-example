@@ -1,0 +1,76 @@
+@import "bootstrap/less/bootstrap.less";
+// @icon-font-path: "../assets/bootstrap/fonts/";
+
+@arrow-size: 20px;
+@arrow-sep: 1px;
+
+.arrow(@color) {
+  width: 0px;
+  height: 0px;
+  border-top: @arrow-size inset transparent;
+  border-bottom: (@arrow-size - 1px) inset transparent;
+  border-left: @arrow-size solid @color;
+  position: absolute;
+  content: "";
+  top: 0;
+}
+
+.state-list {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  padding: 0;
+
+  border: 1px solid #ddd;
+
+  li {
+    display: block;
+    flex: 1;
+    list-style: none;
+    padding:  10px;
+    text-align: center;
+
+    white-space: nowrap;
+
+    &.active {
+      background: @brand-success;
+    }
+
+    position: relative;
+    background-color: @nav-link-hover-bg;
+
+    &:not(:first-child) {
+      padding-left: 2*@arrow-size - @arrow-sep;
+
+      &:before {
+        .arrow(#ddd);
+        left: 0;
+      }
+    }
+
+    &:not(:last-child) {
+      margin-right: @arrow-sep;
+
+      &:after {
+        .arrow(@nav-link-hover-bg);
+        right: -@arrow-size;
+        z-index: 2;
+      }
+    }
+
+    &:first-child {
+      border-top-left-radius: @nav-pills-border-radius;
+      border-bottom-left-radius: @nav-pills-border-radius;
+    }
+    &:last-child {
+      border-top-right-radius: @nav-pills-border-radius;
+      border-bottom-right-radius: @nav-pills-border-radius;
+    }
+
+    &.active {
+      &:after {
+        border-left-color: @brand-success;
+      }
+    }
+  }
+}

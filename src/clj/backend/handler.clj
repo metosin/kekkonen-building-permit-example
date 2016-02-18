@@ -5,6 +5,8 @@
             [schema.core :as s]
             [backend.building-permit :as building-permit]
             [backend.session :as app-session]
+            [ring.middleware.resource :as resource]
+            [ring.middleware.content-type :as content-type]
             [ring.middleware.session :as session]
             [ring.middleware.session.memory :as memory-store]))
 
@@ -13,8 +15,10 @@
 (p/defnk create [state]
   (-> (cqrs-api
         {:swagger {:info {:title "Building Permit application"
-                          :description "a complex simulated real-life case example showcase project for http://kekkonen.io"}}
-         :swagger-ui {:validator-url nil}
+                          :description "a complex simulated real-life case example showcase project for http://kekkonen.io"}
+                   :securityDefinitions {:api_key {:type "apiKey", :name "x-apikey", :in "header"}}}
+         :swagger-ui {:validator-url nil
+                      :path "/api-docs"}
          :core {:handlers {(k/namespace {:name :building-permit
                                          :require-session true
                                          :load-current-user true})
@@ -32,4 +36,7 @@
                        [::building-permit/requires-state building-permit/requires-state]
                        [::building-permit/requires-claim building-permit/requires-claim]]
                 :context {:state state}}})
+      ;; FIXME: Exposes EVERYTHING on classpath
+      (resource/wrap-resource "")
+      (content-type/wrap-content-type)
       (session/wrap-session {:store session-store})))

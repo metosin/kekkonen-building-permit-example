@@ -1,0 +1,2 @@
+{:require [frontend.main]
+ :compiler-options {:asset-path "/js/main.out"}}

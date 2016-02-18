@@ -5,12 +5,18 @@
 
 (def default-users
   {1 {:user-id 1
-      :name "applicant"
+      :name "applicant-1"
       :role :applicant}
    2 {:user-id 2
-      :name "authority"
-      :role :authority}
+      :name "applicant-2"
+      :role :applicant}
    3 {:user-id 3
+      :name "authority-1"
+      :role :authority}
+   4 {:user-id 4
+      :name "authority-2"
+      :role :authority}
+   5 {:user-id 5
       :name "admin"
       :role :admin}})
 
