@@ -17,6 +17,7 @@
        [:meta {:charset "utf-8"}]
        [:meta {:http-equiv "X-UA-Compatible" :content "IE=edge"}]
        [:meta {:name "viewport" :content "width=device-width, initial-scale=1.0"}]
+       [:link {:rel "shortcut icon" :href (str "favicon.ico?v=" (hash/memo-resource-hash "public/favicon.ico"))}]
        (page/include-css (str "css/main.css?v=" (hash/memo-resource-hash "css/main.css")))]
       [:body
        [:div.app-wrapper {:id "app"}]
