@@ -54,16 +54,17 @@
          :authority (get @(:users state) (:authority-id permit))
          :applicant (get @(:users state) (:applicant-id permit))))
 
-(defn retrieve-permit [_]
-  (p/fnk [[:state permits :as state]
-          [:entities current-user]
-          [:data permit-id :- s/Int]
-          :as context]
-    (if-let [permit (get @permits permit-id)]
-      (if (has-permission? permit current-user)
-        (assoc-in context [:entities :permit] permit)
-        (failure! {:error :unauthorized}))
-      (failure! {:error :no-permit}))))
+(def retrieve-permit
+  {:enter (p/fnk [[:state permits :as state]
+                  [:entities current-user]
+                  [:data permit-id :- s/Int]
+                  :as context]
+            (println "foo")
+            (if-let [permit (get @permits permit-id)]
+              (if (has-permission? permit current-user)
+                (assoc-in context [:entities :permit] permit)
+                (failure! {:error :unauthorized}))
+              (failure! {:error :no-permit})))})
 
 (defn requires-state [allowed-states]
   (p/fnk [[:entities [:permit state]] :as context]
@@ -90,7 +91,7 @@
 
 (p/defnk ^:query get-permit
   "Retrieve a single building permit"
-  {::retrieve-permit true
+  {:interceptors [retrieve-permit]
    :responses {:default {:schema BuildingPermit}}}
   [[:entities permit]
    state]
@@ -130,7 +131,7 @@
 (p/defnk ^:command open
   "Ask authority for help"
   {:requires-role #{:applicant}
-   ::retrieve-permit true
+   :interceptors [retrieve-permit]
    ::requires-state #{:draft}}
   [[:state permits]
    chord
@@ -140,7 +141,7 @@
 (p/defnk ^:command submit
   "Submit the permit for official review"
   {:requires-role #{:applicant}
-   ::retrieve-permit true
+   :interceptors [retrieve-permit]
    ::requires-state #{:open :draft}}
   [[:state permits]
    chord
@@ -150,8 +151,8 @@
 (p/defnk ^:command claim
   "Claim this permit"
   {:requires-role #{:authority}
-   ::requires-claim :no
-   ::retrieve-permit true}
+   :interceptors [retrieve-permit]
+   ::requires-claim :no}
   [[:state permits]
    chord
    [:entities
@@ -164,8 +165,8 @@
 (p/defnk ^:command return-to-applicant
   "Ask the applicant to fix something"
   {:requires-role #{:authority}
+   :interceptors [retrieve-permit]
    ::requires-claim true
-   ::retrieve-permit true
    ::requires-state #{:submitted}}
   [[:state permits]
    chord
@@ -176,7 +177,7 @@
   "Approve a permit"
   {:requires-role #{:authority}
    ::requires-claim true
-   ::retrieve-permit true
+   :interceptors [retrieve-permit]
    ::requires-state #{:submitted}}
   [[:state permits]
    chord
@@ -187,7 +188,7 @@
   "Reject a permit"
   {:requires-role #{:authority}
    ::requires-claim true
-   ::retrieve-permit true
+   :interceptors [retrieve-permit]
    ::requires-state #{:submitted}}
   [[:state permits]
    chord
@@ -196,7 +197,7 @@
 
 (p/defnk ^:command add-comment
   "Add a comment to permit"
-  {::retrieve-permit true
+  {:interceptors [retrieve-permit]
    ::requires-state (complement #{:approved :rejected})
    :requires-role #{:applicant :authority}}
   [[:data text :- s/Str]
