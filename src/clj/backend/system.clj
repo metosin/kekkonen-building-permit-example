@@ -1,7 +1,8 @@
 (ns backend.system
   (:require [com.stuartsierra.component :as component]
             [palikka.components.http-kit :as http-kit]
-            [backend.handler :as handler]))
+            [backend.handler :as handler]
+            [backend.chord :as chord]))
 
 (def default-users
   {1 {:user-id 1
@@ -24,6 +25,7 @@
   (component/map->SystemMap
     {:state {:permits (atom {})
              :users (atom default-users)}
+     :chord (chord/create)
      :http (component/using
              (http-kit/create (:http config) {:fn (partial handler/create config)})
-             [:state])}))
+             [:state :chord])}))

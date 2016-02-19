@@ -30,6 +30,7 @@
                   [metosin/lokit "0.1.0"]
                   [hiccup "1.0.5"]
                   [ring-webjars "0.1.1"]
+                  [jarohen/chord "0.7.0"]
 
                   ; Frontend
                   [reagent "0.6.0-alpha"]

@@ -5,7 +5,8 @@
             [frontend.app :as app]
             [reagent-dev-tools.core :as dev]
             [devtools.core :as devtools]
-            [metosin.dates :as dates]))
+            [metosin.dates :as dates]
+            [frontend.chord :as chord]))
 
 (devtools/enable-feature! :sanity-hints)
 (devtools/install!)
@@ -248,6 +249,7 @@
     (a/<! (app/load-session!))
     (app/navigate! :permits))
   (r/render [main-view] (js/document.getElementById "app"))
+  (chord/connect nil)
   (if-let [el (js/document.getElementById "dev")]
     (r/render [dev/dev-tool {}] el)))
 

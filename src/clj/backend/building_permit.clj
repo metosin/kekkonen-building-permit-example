@@ -2,7 +2,8 @@
   (:require [plumbing.core :as p]
             [kekkonen.cqrs :refer :all]
             [schema.core :as s]
-            [schema-tools.core :as st]))
+            [schema-tools.core :as st]
+            [backend.chord :as chord]))
 
 (s/defschema Roles
   (s/enum :applicant :authority :admin))
@@ -125,6 +126,7 @@
   {:requires-role #{:applicant}}
   [[:state permits]
    [:entities current-user]
+   chord
    data :- NewBuildingPermit]
   (let [permit-id (new-id @permits)
         permit (-> data
@@ -135,11 +137,14 @@
                           :authority-id nil
                           :comments [])
                    (->> (s/validate BuildingPermit)))]
+    (chord/broadcast chord {:permit-id permit-id})
     (swap! permits assoc permit-id permit)
     (success {:permit-id permit-id})))
 
-(defn update-state [permits {:keys [permit-id]} state]
+(defn update-state [chord permits {:keys [permit-id]} state]
   (swap! permits assoc-in [permit-id :state] state)
+  ;; FIXME: Check permissions here?
+  (chord/broadcast chord {:permit-id permit-id})
   {:status :ok})
 
 (p/defnk ^:command open
@@ -148,8 +153,9 @@
    ::retrieve-permit true
    ::requires-state #{:draft}}
   [[:state permits]
+   chord
    [:entities permit]]
-  (success (update-state permits permit :open)))
+  (success (update-state chord permits permit :open)))
 
 (p/defnk ^:command submit
   "Submit the permit for official review"
@@ -157,8 +163,9 @@
    ::retrieve-permit true
    ::requires-state #{:open :draft}}
   [[:state permits]
+   chord
    [:entities permit]]
-  (success (update-state permits permit :submitted)))
+  (success (update-state chord permits permit :submitted)))
 
 (p/defnk ^:command claim
   "Claim this permit"
@@ -166,10 +173,12 @@
    ::requires-claim :no
    ::retrieve-permit true}
   [[:state permits]
+   chord
    [:entities
     [:permit permit-id]
     [:current-user user-id]]]
   (swap! permits assoc-in [permit-id :authority-id] user-id)
+  (chord/broadcast chord {:permit-id permit-id})
   (success {:status :ok}))
 
 (p/defnk ^:command return-to-applicant
@@ -179,8 +188,9 @@
    ::retrieve-permit true
    ::requires-state #{:submitted}}
   [[:state permits]
+   chord
    [:entities permit]]
-  (success (update-state permits permit :open)))
+  (success (update-state chord permits permit :open)))
 
 (p/defnk ^:command approve
   "Approve a permit"
@@ -189,8 +199,9 @@
    ::retrieve-permit true
    ::requires-state #{:submitted}}
   [[:state permits]
+   chord
    [:entities permit]]
-  (success (update-state permits permit :approved)))
+  (success (update-state chord permits permit :approved)))
 
 (p/defnk ^:command reject
   "Reject a permit"
@@ -199,8 +210,9 @@
    ::retrieve-permit true
    ::requires-state #{:submitted}}
   [[:state permits]
+   chord
    [:entities permit]]
-  (success (update-state permits permit :rejected)))
+  (success (update-state chord permits permit :rejected)))
 
 (p/defnk ^:command add-comment
   "Add a comment to permit"
@@ -209,6 +221,7 @@
    :requires-role #{:applicant :authority}}
   [[:data text :- s/Str]
    [:state permits]
+   chord
    [:entities
     [:permit permit-id]
     [:current-user user-id]]]
@@ -216,5 +229,6 @@
                      :sent (java.util.Date.)
                      :text text}]
     (swap! permits update-in [permit-id :comments] (fnil conj []) new-comment)
+    (chord/broadcast chord {:permit-id permit-id})
     (success {:status :ok
               :comment new-comment})))
