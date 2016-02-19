@@ -190,9 +190,9 @@
              "Comment"]])
 
          (for [{:keys [sent text]} comments]
-           [:div
-            [:p text]
-            [:span "Sent at " (str sent)]])]))))
+           [:div.comment
+            [:h2 (date-str sent) " - " ]
+            [:p text]])]))))
 
 (defmethod render-view :default [_]
   [:h1 "Unknown view"])
