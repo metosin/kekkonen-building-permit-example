@@ -5,18 +5,9 @@
             [schema-tools.core :as st]
             [backend.chord :as chord]))
 
-(s/defschema Roles
-  (s/enum :applicant :authority :admin))
+(s/defschema Roles (s/enum :applicant :authority :admin))
 
-(s/defschema States
-  (s/enum :draft :open :submitted :approved :rejected))
-
-(def transitions
-  {:draft #{:open :submitted}
-   :open #{:submitted}
-   :submitted #{:open :approved :rejected}
-   :approved #{}
-   :rejected #{}})
+(s/defschema States (s/enum :draft :open :submitted :approved :rejected))
 
 (s/defschema Comment
   {:user s/Int
@@ -91,6 +82,12 @@
       context
       (failure! {:error :unauthorized}))))
 
+(defn update-state [chord permits {:keys [permit-id]} state]
+  (swap! permits assoc-in [permit-id :state] state)
+  ;; FIXME: Check permissions here?
+  (chord/broadcast chord {:permit-id permit-id})
+  {:status :ok})
+
 (p/defnk ^:query get-permit
   "Retrieve a single building permit"
   {::retrieve-permit true
@@ -140,12 +137,6 @@
     (chord/broadcast chord {:permit-id permit-id})
     (swap! permits assoc permit-id permit)
     (success {:permit-id permit-id})))
-
-(defn update-state [chord permits {:keys [permit-id]} state]
-  (swap! permits assoc-in [permit-id :state] state)
-  ;; FIXME: Check permissions here?
-  (chord/broadcast chord {:permit-id permit-id})
-  {:status :ok})
 
 (p/defnk ^:command open
   "Ask authority for help"
@@ -225,7 +216,7 @@
    [:entities
     [:permit permit-id]
     [:current-user user-id]]]
-  (let [new-comment {:user user-id
+  (let [new-comment {:user-id user-id
                      :sent (java.util.Date.)
                      :text text}]
     (swap! permits update-in [permit-id :comments] (fnil conj []) new-comment)

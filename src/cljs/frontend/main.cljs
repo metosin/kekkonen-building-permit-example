@@ -190,9 +190,9 @@
              {:type "submit"}
              "Comment"]])
 
-         (for [{:keys [sent text]} comments]
+         (for [{:keys [sent text user-id]} comments]
            [:div.comment
-            [:h2 (date-str sent) " - " ]
+            [:h2 (date-str sent) " - " user-id]
             [:p text]])]))))
 
 (defmethod render-view :default [_]
