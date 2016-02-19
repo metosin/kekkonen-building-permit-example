@@ -122,4 +122,5 @@
 (defn permit-action! [k data]
   (a/go
     (let [resp (a/<! (cqrs/command client k data))]
-      (a/<! (load-my-permits!)))))
+      (check-available-permit-actions! (select-keys data [:permit-id]))
+      (load-my-permits!))))

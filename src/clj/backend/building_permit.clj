@@ -84,7 +84,9 @@
            [:permit authority-id]
            [:current-user user-id]]
           :as context]
-    (if (= v (= authority-id user-id))
+    (if (case v
+          true (= authority-id user-id)
+          :no (nil? authority-id))
       context
       (failure! {:error :unauthorized}))))
 
@@ -161,7 +163,7 @@
 (p/defnk ^:command claim
   "Claim this permit"
   {:requires-role #{:authority}
-   ::requires-claim false
+   ::requires-claim :no
    ::retrieve-permit true}
   [[:state permits]
    [:entities
