@@ -66,7 +66,7 @@
   (p/fnk [[:entities [:permit state]] :as context]
     (if (allowed-states state)
       context
-      (failure! {:error :bad-request}))))
+      (failure! {:error :bad-state}))))
 
 (defn requires-claim [v]
   (p/fnk [[:entities
@@ -77,7 +77,9 @@
           true (= authority-id user-id)
           :no (nil? authority-id))
       context
-      (failure! {:error :unauthorized}))))
+      (failure! {:error (case v
+                          true :requires-claim
+                          :no :requires-no-claim)}))))
 
 (def broadcast-update
   {:leave (p/fnk [chord [:data permit-id :- s/Int]]
@@ -119,6 +121,7 @@
   {:requires-role #{:applicant}}
   [[:state permits id-seq]
    [:entities current-user]
+   chord
    data :- NewBuildingPermit]
   (let [permit-id (swap! id-seq inc)
         permit (-> data
@@ -130,6 +133,7 @@
                           :events [])
                    (->> (s/validate BuildingPermit)))]
     (swap! permits assoc permit-id permit)
+    (chord/broadcast chord {:permit-id permit-id})
     (success {:permit-id permit-id})))
 
 (p/defnk ^:command open
@@ -209,6 +213,7 @@
   "Add a comment to permit"
   {::retrieve-permit true
    ::requires-state (complement #{:approved :rejected})
+   ::requires-claim true
    :requires-role #{:applicant :authority}
    :interceptors [broadcast-update]}
   [[:data text :- s/Str]

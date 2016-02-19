@@ -2,6 +2,8 @@
 
 > a complex simulated real-life case example showcase project
 
+Demo: https://building-permits.herokuapp.com/
+
 ## Usage
 
 ### Run the application locally
