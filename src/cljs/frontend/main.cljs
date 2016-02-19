@@ -11,7 +11,7 @@
 (devtools/install!)
 
 (defn date-str [x]
-  (dates/format x {:pattern "d.M.yyyy HH:mm"}))
+  (if x (dates/format x {:pattern "d.M.yyyy HH:mm"})))
 
 (def authority? #{:authority})
 (def applicant? #{:applicant})
@@ -65,7 +65,7 @@
          [:tr
           {:key permit-id}
           [:td
-           [:a {:on-click #(app/navigate! :permit {:id permit-id})
+           [:a {:on-click #(app/navigate! :permit {:permit-id permit-id})
                 :href "#"}
             title]]
           [:td
@@ -148,9 +148,9 @@
 
 (defn permit-view [_]
   (let [comment-text (r/atom "")]
-    (fn [{:keys [id]}]
+    (fn [{:keys [permit-id]}]
       (let [{:keys [title applicant authority created permit-id comments state] :as permit}
-            @(r/track app/permit-by-id id)]
+            @(r/track app/permit-by-id permit-id)]
         [:div
          [:h1 "Permit: " title]
 
@@ -214,11 +214,11 @@
 (defmethod render-view :new-permit [_]
   [new-permit-view])
 
-(defmethod app/navigate-hook :permit [{:keys [id]}]
-  (app/check-available-permit-actions! {:permit-id id}))
+(defmethod app/navigate-hook :permit [{:keys [permit-id]}]
+  (app/check-available-permit-actions! {:permit-id permit-id}))
 
-(defmethod render-view :permit [{:keys [id]}]
-  [permit-view {:id id}])
+(defmethod render-view :permit [{:keys [permit-id]}]
+  [permit-view {:permit-id permit-id}])
 
 (defn main-view []
   (let [view @(r/track app/view)
