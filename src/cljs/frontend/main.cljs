@@ -190,7 +190,7 @@
 
          (for [{:keys [sent text user-id]} (reverse comments)]
            [:div.comment
-            [:h2 (date-str sent) " - " user-id]
+            [:h2 (date-str sent) " - " ]
             [:p text]])]))))
 
 (defmethod render-view :default [_]

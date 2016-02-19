@@ -10,19 +10,19 @@
       (-> req :session :identity)))
 
 (defn require-session [result]
-  {:enter (p/fnk [request :as m]
-            (if (session-identity request)
-              m
-              (if (= :error result)
-                (failure! {:status :unauthorized}))))})
+  (p/fnk [request :as m]
+    (if (session-identity request)
+      m
+      (if (= :error result)
+        (failure! {:status :unauthorized})))))
 
-(def load-current-user
-  {:enter (p/fnk [request
-                  [:state users]
-                  :as context]
-            (if-let [current-user (get @users (session-identity request))]
-              (assoc-in context [:entities :current-user] current-user)
-              context))})
+(defn load-current-user [_]
+  (p/fnk [request
+          [:state users]
+          :as context]
+    (if-let [current-user (get @users (session-identity request))]
+      (assoc-in context [:entities :current-user] current-user)
+      context)))
 
 (defn requires-role [allowed-roles]
   (p/fnk [[:entities [:current-user role]]
@@ -47,7 +47,8 @@
   (assoc-in (success) [:session] nil))
 
 (p/defnk ^:query who-am-i
-  {:interceptors [[require-session :error] load-current-user]
+  {:require-session :error
+   :load-current-user true
    :responses {:default {:schema users/User}}}
   [[:entities current-user]]
   (success current-user))

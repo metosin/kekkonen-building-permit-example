@@ -20,18 +20,20 @@
      :swagger-ui {:validator-url nil
                   :path "/api-docs"}
      :core {:handlers {(k/namespace {:name :building-permit
-                                     :interceptors [app-session/load-current-user]
-                                     :require-session true})
+                                     :require-session true
+                                     :load-current-user true})
                        'backend.building-permit
 
                        (k/namespace {:name :session})
                        'backend.session
 
                        (k/namespace {:name :users
-                                     :interceptors [app-session/load-current-user]
-                                     :require-session true})
+                                     :require-session true
+                                     :load-current-user true})
                        'backend.users}
-            :user [[:requires-role app-session/requires-role]
+            :user [[:require-session app-session/require-session]
+                   [:load-current-user app-session/load-current-user]
+                   [:requires-role app-session/requires-role]
                    [::building-permit/retrieve-permit building-permit/retrieve-permit]
                    [::building-permit/requires-state building-permit/requires-state]
                    [::building-permit/requires-claim building-permit/requires-claim]]
