@@ -24,7 +24,9 @@
 (defn new-system [config]
   (component/map->SystemMap
     {:state {:permits (atom {})
-             :users (atom default-users)}
+             :users (atom default-users)
+             :id-seq (atom 0)
+             :archive-id-seq (atom 0)}
      :chord (chord/create)
      :http (component/using
              (http-kit/create (:http config) {:fn (partial handler/create config)})

@@ -5,40 +5,30 @@
             [schema-tools.core :as st]
             [backend.chord :as chord]))
 
-(s/defschema Roles
-  (s/enum :applicant :authority :admin))
+(s/defschema Roles (s/enum :applicant :authority :admin))
 
-(s/defschema States
-  (s/enum :draft :open :submitted :approved :rejected))
+(s/defschema States (s/enum :draft :open :submitted :approved :rejected))
 
-(def transitions
-  {:draft #{:open :submitted}
-   :open #{:submitted}
-   :submitted #{:open :approved :rejected}
-   :approved #{}
-   :rejected #{}})
-
-(s/defschema Comment
-  {:user s/Int
+(s/defschema Event
+  {:type (s/enum :comment :transition)
+   (s/optional-key :from-state) s/Keyword
+   (s/optional-key :to-state) s/Keyword
+   :user s/Int
    :sent s/Inst
-   :text s/Str})
+   (s/optional-key :text) s/Str})
 
 (s/defschema BuildingPermit
   {:permit-id s/Int
+   (s/optional-key :archive-id) s/Int
    :state States
    :title s/Str
    :applicant-id s/Int
    :created s/Inst
    :authority-id (s/maybe s/Int)
-   :comments [Comment]})
+   :events [Event]})
 
 (s/defschema NewBuildingPermit
   (st/select-keys BuildingPermit [:title]))
-
-(defn new-id [entities]
-  (if-let [ids (seq (keys entities))]
-    (inc (apply max ids))
-    1))
 
 (defn has-permission? [permit user]
   (let [{:keys [applicant-id authority-id]} permit
@@ -46,8 +36,7 @@
     (case role
       :applicant (= user-id applicant-id)
       :authority true
-      :admin true
-      false)))
+      :admin true)))
 
 (defn is-interesting? [permit user]
   (let [{:keys [applicant-id authority-id]} permit
@@ -55,8 +44,7 @@
     (case role
       :applicant (= user-id applicant-id)
       :authority (or (= user-id authority-id) (nil? authority-id))
-      :admin true
-      false)))
+      :admin true)))
 
 (defn enrich [state permit]
   (assoc permit
@@ -91,6 +79,22 @@
       context
       (failure! {:error :unauthorized}))))
 
+(def broadcast-update
+  {:leave (p/fnk [chord [:data permit-id :- s/Int]]
+            (chord/broadcast chord {:permit-id permit-id}))})
+
+(defn add-comment' [permit new-comment]
+  (update permit :events (fnil conj []) new-comment))
+
+(defn set-state [permit new-state]
+  (-> permit
+      (assoc :state new-state)
+      (add-comment' {:type :transition
+                     :from-state (:state permit)
+                     :to-state new-state
+                     :user nil
+                     :sent (java.util.Date.)})))
+
 (p/defnk ^:query get-permit
   "Retrieve a single building permit"
   {::retrieve-permit true
@@ -113,61 +117,54 @@
 (p/defnk ^:command create-permit
   "Create building permit application"
   {:requires-role #{:applicant}}
-  [[:state permits]
+  [[:state permits id-seq]
    [:entities current-user]
-   chord
    data :- NewBuildingPermit]
-  (let [permit-id (new-id @permits)
+  (let [permit-id (swap! id-seq inc)
         permit (-> data
                    (assoc :state :draft
                           :permit-id permit-id
                           :applicant-id (:user-id current-user)
                           :created (java.util.Date.)
                           :authority-id nil
-                          :comments [])
+                          :events [])
                    (->> (s/validate BuildingPermit)))]
-    (chord/broadcast chord {:permit-id permit-id})
     (swap! permits assoc permit-id permit)
     (success {:permit-id permit-id})))
-
-(defn update-state [chord permits {:keys [permit-id]} state]
-  (swap! permits assoc-in [permit-id :state] state)
-  ;; FIXME: Check permissions here?
-  (chord/broadcast chord {:permit-id permit-id})
-  {:status :ok})
 
 (p/defnk ^:command open
   "Ask authority for help"
   {:requires-role #{:applicant}
    ::retrieve-permit true
-   ::requires-state #{:draft}}
-  [[:state permits]
-   chord
-   [:entities permit]]
-  (success (update-state chord permits permit :open)))
+   ::requires-state #{:draft}
+   :interceptors [broadcast-update]}
+  [[:entities [:permit permit-id]]
+   [:state permits]]
+  (swap! permits update permit-id set-state :open)
+  (success {:status :ok}))
 
 (p/defnk ^:command submit
   "Submit the permit for official review"
   {:requires-role #{:applicant}
    ::retrieve-permit true
-   ::requires-state #{:open :draft}}
+   ::requires-state #{:open :draft}
+   :interceptors [broadcast-update]}
   [[:state permits]
-   chord
-   [:entities permit]]
-  (success (update-state chord permits permit :submitted)))
+   [:entities [:permit permit-id]]]
+  (swap! permits update permit-id set-state :submitted)
+  (success {:status :ok}))
 
 (p/defnk ^:command claim
   "Claim this permit"
   {:requires-role #{:authority}
    ::requires-claim :no
-   ::retrieve-permit true}
+   ::retrieve-permit true
+   :interceptors [broadcast-update]}
   [[:state permits]
-   chord
    [:entities
     [:permit permit-id]
     [:current-user user-id]]]
-  (swap! permits assoc-in [permit-id :authority-id] user-id)
-  (chord/broadcast chord {:permit-id permit-id})
+  (swap! permits update permit-id assoc :authority-id user-id)
   (success {:status :ok}))
 
 (p/defnk ^:command return-to-applicant
@@ -175,49 +172,53 @@
   {:requires-role #{:authority}
    ::requires-claim true
    ::retrieve-permit true
-   ::requires-state #{:submitted}}
+   ::requires-state #{:submitted}
+   :interceptors [broadcast-update]}
   [[:state permits]
-   chord
-   [:entities permit]]
-  (success (update-state chord permits permit :open)))
+   [:entities [:permit permit-id]]]
+  (swap! permits update permit-id set-state :open)
+  (success {:status :ok}))
 
 (p/defnk ^:command approve
   "Approve a permit"
   {:requires-role #{:authority}
    ::requires-claim true
    ::retrieve-permit true
-   ::requires-state #{:submitted}}
-  [[:state permits]
-   chord
-   [:entities permit]]
-  (success (update-state chord permits permit :approved)))
+   ::requires-state #{:submitted}
+   :interceptors [broadcast-update]}
+  [[:state permits archive-id-seq]
+   [:entities [:permit permit-id]]]
+  (swap! permits update permit-id assoc
+         :state :approved
+         :archive-id (swap! archive-id-seq inc))
+  (success {:status :ok}))
 
 (p/defnk ^:command reject
   "Reject a permit"
   {:requires-role #{:authority}
    ::requires-claim true
    ::retrieve-permit true
-   ::requires-state #{:submitted}}
+   ::requires-state #{:submitted}
+   :interceptors [broadcast-update]}
   [[:state permits]
-   chord
-   [:entities permit]]
-  (success (update-state chord permits permit :rejected)))
+   [:entities [:permit permit-id]]]
+  (swap! permits update permit-id set-state :rejected)
+  (success {:status :ok}))
 
 (p/defnk ^:command add-comment
   "Add a comment to permit"
   {::retrieve-permit true
    ::requires-state (complement #{:approved :rejected})
-   :requires-role #{:applicant :authority}}
+   :requires-role #{:applicant :authority}
+   :interceptors [broadcast-update]}
   [[:data text :- s/Str]
    [:state permits]
-   chord
    [:entities
     [:permit permit-id]
     [:current-user user-id]]]
-  (let [new-comment {:user user-id
+  (let [new-comment {:type :comment
+                     :user-id user-id
                      :sent (java.util.Date.)
                      :text text}]
-    (swap! permits update-in [permit-id :comments] (fnil conj []) new-comment)
-    (chord/broadcast chord {:permit-id permit-id})
-    (success {:status :ok
-              :comment new-comment})))
+    (swap! permits update permit-id add-comment' new-comment)
+    (success {:status :ok})))

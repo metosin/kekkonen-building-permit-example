@@ -22,7 +22,7 @@
 (defn login-view []
   (let [username (r/atom "")]
     (fn []
-      [:div.col-md-4.col-md-offset-4
+      [:div.col-sm-4.col-sm-offset-4
        [:h1 "Hello, please log in"]
        [:form
         {:on-submit (fn [e]
@@ -136,7 +136,7 @@
 (defn permit-view [_]
   (let [comment-text (r/atom "")]
     (fn [{:keys [permit-id]}]
-      (let [{:keys [title applicant authority created permit-id comments state] :as permit}
+      (let [{:keys [title applicant authority archive-id created permit-id events state] :as permit}
             @(r/track app/permit-by-id permit-id)]
         [:div
          [:h1 "Permit: " title]
@@ -150,7 +150,10 @@
            [:dd (:name authority)]
 
            [:dt "Created"]
-           [:dd (date-str created)]]]
+           [:dd (date-str created)]
+
+           (if archive-id [:dt "Archive id"])
+           (if archive-id [:dd archive-id])]]
 
          [:ul.state-list
           [:li {:class (if (#{:draft :open :submitted :approved :rejected} state) "active ")}
@@ -171,8 +174,6 @@
               [action k permit])
             [:p "No available actions. Wait for other party."])]
 
-         [:h2 "Comments"]
-
          (if @(r/track app/available-action? :building-permit/add-comment)
            [:form
             {:on-submit (fn [e]
@@ -188,10 +189,18 @@
              {:type "submit"}
              "Comment"]])
 
-         (for [{:keys [sent text user-id]} (reverse comments)]
-           [:div.comment
-            [:h2 (date-str sent) " - " ]
-            [:p text]])]))))
+         (for [{:keys [type from-state to-state sent text user-id]} (reverse events)]
+           (case type
+             :comment
+             [:div.comment
+              {:key sent}
+              [:h2 (date-str sent) " - " ]
+              [:p text]]
+
+             :transition
+             [:h3
+              {:key sent}
+              (date-str sent) " - " (name from-state) " -> " (name to-state)]))]))))
 
 (defmethod render-view :default [_]
   [:h1 "Unknown view"])
