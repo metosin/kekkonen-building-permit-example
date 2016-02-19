@@ -104,40 +104,34 @@
   [:h2 "Unknown action " (name k)])
 
 (defmethod action :building-permit/open [k {:keys [permit-id]}]
-  [:div
-   [:button.btn.btn-success
-    {:on-click #(app/permit-action! k {:permit-id permit-id})}
-    "Open"]])
+  [:button.btn.btn-success
+   {:on-click #(app/permit-action! k {:permit-id permit-id})}
+   "Open"])
 
 (defmethod action :building-permit/submit [k {:keys [permit-id]}]
-  [:div
-   [:button.btn.btn-success
-    {:on-click #(app/permit-action! k {:permit-id permit-id})}
-    "Submit"]])
+  [:button.btn.btn-success
+   {:on-click #(app/permit-action! k {:permit-id permit-id})}
+   "Submit"])
 
 (defmethod action :building-permit/claim [k {:keys [permit-id]}]
-  [:div
-   [:button.btn.btn-success
-    {:on-click #(app/permit-action! k {:permit-id permit-id})}
-    "Claim"]])
+  [:button.btn.btn-success
+   {:on-click #(app/permit-action! k {:permit-id permit-id})}
+   "Claim"])
 
 (defmethod action :building-permit/return-to-applicant [k {:keys [permit-id]}]
-  [:div
-   [:button.btn.btn-success
-    {:on-click #(app/permit-action! k {:permit-id permit-id})}
-    "Return to applicant"]])
+  [:button.btn.btn-success
+   {:on-click #(app/permit-action! k {:permit-id permit-id})}
+   "Return to applicant"])
 
 (defmethod action :building-permit/approve [k {:keys [permit-id]}]
-  [:div
-   [:button.btn.btn-success
-    {:on-click #(app/permit-action! k {:permit-id permit-id})}
-    "Approve"]])
+  [:button.btn.btn-success
+   {:on-click #(app/permit-action! k {:permit-id permit-id})}
+   "Approve"])
 
 (defmethod action :building-permit/reject [k {:keys [permit-id]}]
-  [:div
-   [:button.btn.btn-success
-    {:on-click #(app/permit-action! k {:permit-id permit-id})}
-    "Reject"]])
+  [:button.btn.btn-success
+   {:on-click #(app/permit-action! k {:permit-id permit-id})}
+   "Reject"])
 
 (defn permit-view [_]
   (let [comment-text (r/atom "")]
@@ -170,9 +164,12 @@
 
          [:h2 "Available actions"]
 
-         (for [k @(r/track app/interesting-actions)]
-           ^{:key k}
-           [action k permit])
+         [:div.btn-toolbar
+          (if-let [actions (seq @(r/track app/interesting-actions))]
+            (for [k actions]
+              ^{:key k}
+              [action k permit])
+            [:p "No available actions. Wait for other party."])]
 
          [:h2 "Comments"]
 
@@ -181,7 +178,8 @@
             {:on-submit (fn [e]
                           (.preventDefault e)
                           (app/permit-action! :building-permit/add-comment {:permit-id permit-id
-                                                                            :text @comment-text}))}
+                                                                            :text @comment-text})
+                          (reset! comment-text ""))}
             [:div.form-group
              [:textarea.form-control
               {:value @comment-text
@@ -190,7 +188,7 @@
              {:type "submit"}
              "Comment"]])
 
-         (for [{:keys [sent text user-id]} comments]
+         (for [{:keys [sent text user-id]} (reverse comments)]
            [:div.comment
             [:h2 (date-str sent) " - " user-id]
             [:p text]])]))))
@@ -223,7 +221,7 @@
         [:a.navbar-brand
          {:href "#"
           :on-click  #(app/navigate! :permits)}
-         "Building Permit Application"]]
+         "Building Permits"]]
        [:ul.nav.navbar-nav
         [:li
          [:a {:on-click #(app/navigate! :permits)

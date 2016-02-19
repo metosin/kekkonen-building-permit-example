@@ -62,38 +62,8 @@
   (nil? (get @(r/track available-actions) action)))
 
 ;;
-;; Load stuff
+;; Navigation
 ;;
-
-(defn map-by-id [k m]
-  (into {} (map (juxt k identity) m)))
-
-(defn load-my-permits! []
-  (a/go
-    (let [resp (a/<! (cqrs/query client :building-permit/my-permits))]
-      (when (success? resp)
-        (swap! state assoc :permits (map-by-id :permit-id (:body resp)))))))
-
-(defn load-session! []
-  (a/go
-    (let [resp (a/<! (cqrs/query client :session/who-am-i))]
-      (if (success? resp)
-        (do
-          (swap! state assoc :session {:status :logged
-                                       :user (:body resp)}))
-        (swap! state assoc :session {:status :not-logged})))))
-
-(defn login! [username]
-  (a/go
-    (let [resp (a/<! (cqrs/command client :session/login {:username username}))]
-      (if (success? resp)
-        (a/<! (load-session!))))))
-
-(defn logout! []
-  (a/go
-    (let [resp (a/<! (cqrs/command client :session/logout))]
-      (if (success? resp)
-        (a/<! (load-session!))))))
 
 (defmulti navigate-hook :routing/id)
 
@@ -106,11 +76,52 @@
    (swap! state assoc :view (assoc params :routing/id route))
    (navigate-hook (assoc params :routing/id route))))
 
+;;
+;; Load stuff
+;;
+
+(defn map-by-id [k m]
+  (into {} (map (juxt k identity) m)))
+
+(defn load-session! []
+  (a/go
+    (let [resp (a/<! (cqrs/query client :session/who-am-i))]
+      (if (success? resp)
+        (do
+          (swap! state assoc :session {:status :logged
+                                       :user (:body resp)}))
+        (swap! state assoc :session {:status :not-logged})))))
+
+(defn load-my-permits! []
+  (a/go
+    (let [resp (a/<! (cqrs/query client :building-permit/my-permits))]
+      (when (success? resp)
+        (swap! state assoc :permits (map-by-id :permit-id (:body resp)))))))
+
+(defn login! [username]
+  (a/go
+    (let [resp (a/<! (cqrs/command client :session/login {:username username}))]
+      (when (success? resp)
+        (a/<! (load-session!))
+        (load-my-permits!)))))
+
+(defn logout! []
+  (a/go
+    (let [resp (a/<! (cqrs/command client :session/logout))]
+      (when (success? resp)
+        (a/<! (load-session!))))))
+
+(defn load-permit! [{:keys [permit-id]}]
+  (a/go
+    (let [resp (a/<! (cqrs/query client :building-permit/get-permit {:permit-id permit-id}))]
+      (when (success? resp)
+        (swap! state assoc-in [:permits permit-id] (:body resp))))))
+
 (defn create-permit! [data]
   (a/go
     (let [resp (a/<! (cqrs/command client :building-permit/create-permit data))]
       (when (success? resp)
-        (a/<! (load-my-permits!))
+        (a/<! (load-permit! {:permit-id (:permit-id (:body resp))}))
         (navigate! :permit {:permit-id (:permit-id (:body resp))})))))
 
 (defn check-available-permit-actions! [data]
@@ -119,8 +130,8 @@
       (when (success? resp)
         (swap! state assoc :available-permit-actions (:body resp))))))
 
-(defn permit-action! [k data]
+(defn permit-action! [k {:keys [permit-id] :as data}]
   (a/go
     (let [resp (a/<! (cqrs/command client k data))]
-      (check-available-permit-actions! (select-keys data [:permit-id]))
-      (load-my-permits!))))
+      (check-available-permit-actions! {:permit-id permit-id})
+      (load-permit! {:permit-id permit-id}))))

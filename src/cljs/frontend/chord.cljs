@@ -13,14 +13,13 @@
 
 (defn connect [_]
   (go
-    (when @conn
-      (close! @conn))
+    (when @conn (close! @conn))
     (let [{:keys [ws-channel error]} (<! (ws-ch (create-url "/ws") {:format :transit-json}))]
       (reset! conn ws-channel)
       (when-not error
         (loop [m (<! ws-channel)]
-          (when m
-            (js/console.log (:message m))
-            (app/load-my-permits!)
-            (app/check-available-permit-actions! {:permit-id (:permit-id (:message m))})
+          (when-let [{{:keys [permit-id] :as message} :message} m]
+            (js/console.log message)
+            (app/load-permit! {:permit-id permit-id})
+            (app/check-available-permit-actions! {:permit-id permit-id})
             (recur (<! ws-channel))))))))

@@ -96,17 +96,6 @@
    state]
   (success (enrich state permit)))
 
-(p/defnk ^:query all-permits
-  "List building permits you have access to"
-  {:responses {:default {:schema [BuildingPermit]}}}
-  [[:state permits :as state]
-   [:entities current-user]]
-  (success (->> @permits
-                vals
-                (filter #(has-permission? % current-user))
-                (map #(enrich state %))
-                vec)))
-
 (p/defnk ^:query my-permits
   "List building permits you have access to"
   {:responses {:default {:schema [BuildingPermit]}}}

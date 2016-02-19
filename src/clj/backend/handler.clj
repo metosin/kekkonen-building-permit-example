@@ -24,7 +24,9 @@
                                      :require-session true})
                        'backend.building-permit
 
-                       :session 'backend.session
+                       (k/namespace {:name :session})
+                       'backend.session
+
                        (k/namespace {:name :users
                                      :interceptors [app-session/load-current-user]
                                      :require-session true})
