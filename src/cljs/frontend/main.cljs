@@ -57,8 +57,7 @@
         (if (authority? role)
           [:th "Applicant"])
         (if (applicant? role)
-          [:th "Handler"]
-          [:th "Claimed"])
+          [:th "Handler"])
         [:th "Created"]]]
       [:tbody
        (for [{:keys [permit-id title applicant-id applicant authority-id authority created state] :as permit} permits]
@@ -75,14 +74,7 @@
           (if (applicant? role)
             [:td (if authority-id
                    (:name authority)
-                   "Not assigned yet")]
-            ; FIXME: Duplicated logic instead of checking if command is available
-            [:td (if-not authority-id
-                   [:button.btn.btn-success.btn-block
-                    {:type "button"
-                     :on-click #(app/permit-action! :building-permit/claim permit-id)}
-                    "Claim"]
-                   "Claimed")])
+                   "Not assigned yet")])
           [:td (date-str created)]])]]]))
 
 (defn new-permit-view []
