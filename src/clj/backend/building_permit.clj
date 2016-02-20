@@ -84,8 +84,9 @@
                           :no :requires-no-claim)}))))
 
 (def broadcast-update
-  {:leave (p/fnk [chord [:data permit-id :- s/Int]]
-            (chord/broadcast chord {:permit-id permit-id}))})
+  {:leave (p/fnk [chord [:data permit-id :- s/Int] :as context]
+            (chord/broadcast chord {:permit-id permit-id})
+            context)})
 
 (defn add-comment' [permit new-comment]
   (update permit :events (fnil conj []) new-comment))
