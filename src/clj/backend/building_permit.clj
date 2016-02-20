@@ -66,7 +66,9 @@
   (p/fnk [[:entities [:permit state]] :as context]
     (if (allowed-states state)
       context
-      (failure! {:error :bad-state}))))
+      (failure! {:error :bad-state
+                 :allowed-states allowed-states
+                 :current-state state}))))
 
 (defn requires-claim [v]
   (p/fnk [[:entities
