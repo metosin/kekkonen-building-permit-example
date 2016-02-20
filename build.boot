@@ -23,7 +23,7 @@
                   [reloaded.repl "0.2.1"]
                   [com.stuartsierra/component "0.3.1"]
                   [metosin/palikka "0.3.0"]
-                  [metosin/kekkonen "0.2.0-SNAPSHOT"]
+                  [metosin/kekkonen "0.2.0-20160219.122657-3"]
                   [metosin/reagent-dev-tools "0.1.0"]
                   [metosin/ring-http-response "0.6.5"]
                   [metosin/metosin-common "0.1.3"]
