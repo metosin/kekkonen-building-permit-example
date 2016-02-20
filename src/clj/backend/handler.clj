@@ -12,6 +12,14 @@
             [chord.http-kit :refer [with-channel]]
             [backend.chord :as chord]))
 
+(def building-permit-ns (k/namespace {:name :building-permit
+                                      :require-session true
+                                      :load-current-user true}))
+
+(def users-ns (k/namespace {:name :users
+                            :require-session true
+                            :load-current-user true}))
+
 (defn create-api [{:keys [state chord]}]
   (cqrs-api
     {:swagger {:info {:title "Building Permit application"
@@ -19,18 +27,9 @@
                :securityDefinitions {:api_key {:type "apiKey", :name "x-apikey", :in "header"}}}
      :swagger-ui {:validator-url nil
                   :path "/api-docs"}
-     :core {:handlers {(k/namespace {:name :building-permit
-                                     :require-session true
-                                     :load-current-user true})
-                       'backend.building-permit
-
-                       (k/namespace {:name :session})
-                       'backend.session
-
-                       (k/namespace {:name :users
-                                     :require-session true
-                                     :load-current-user true})
-                       'backend.users}
+     :core {:handlers {building-permit-ns 'backend.building-permit
+                       users-ns 'backend.users
+                       :session 'backend.session}
             :user [[:require-session app-session/require-session]
                    [:load-current-user app-session/load-current-user]
                    [:requires-role app-session/requires-role]

@@ -215,7 +215,6 @@
   "Add a comment to permit"
   {::retrieve-permit true
    ::requires-state (complement #{:approved :rejected})
-   ::requires-claim true
    :requires-role #{:applicant :authority}
    :interceptors [broadcast-update]}
   [[:data text :- s/Str]
